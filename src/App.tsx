@@ -15,6 +15,7 @@ import { TestingSuiteModal } from './components/TestingSuiteModal';
 import { DockerDeploymentModal } from './components/DockerDeploymentModal';
 import { PriceAlertModal } from './components/PriceAlertModal';
 import { UserDashboardModal } from './components/UserDashboardModal';
+import { AuthModal } from './components/AuthModal';
 import { RoleDashboard } from './components/RoleDashboard';
 import { PlatformLogo } from './components/PlatformLogo';
 import { ProductCategory, PlatformOrigin } from './types';
@@ -438,6 +439,7 @@ export default function App() {
       <DockerDeploymentModal />
       <PriceAlertModal />
       <UserDashboardModal />
+      <AuthModal />
     </div>
   );
 }

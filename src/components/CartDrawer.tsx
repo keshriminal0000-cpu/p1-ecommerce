@@ -22,7 +22,9 @@ export const CartDrawer: React.FC = () => {
     clearCart,
     setIsCheckoutOpen,
     setIsLinkExtractorOpen,
-    currency 
+    currency,
+    isAuthenticated,
+    openAuthModal
   } = useStore();
 
   if (!isCartOpen) return null;
@@ -45,6 +47,11 @@ export const CartDrawer: React.FC = () => {
   const totalUSD = subtotalUSD - studentDiscountUSD + taxUSD;
 
   const handleProceedToCheckout = () => {
+    if (!isAuthenticated) {
+      setIsCartOpen(false);
+      openAuthModal('checkout');
+      return;
+    }
     setIsCartOpen(false);
     setIsCheckoutOpen(true);
   };

@@ -42,6 +42,11 @@ interface StoreState {
   isUserDashboardOpen: boolean;
   activeDashboardTab: 'alerts' | 'wishlist' | 'profile' | 'orders';
 
+  // Authentication & Student Session
+  isAuthenticated: boolean;
+  isAuthModalOpen: boolean;
+  authRedirectAction: 'checkout' | null;
+
   // Active Modals & Viewers
   isCartOpen: boolean;
   isCheckoutOpen: boolean;
@@ -59,6 +64,13 @@ interface StoreState {
 
   // Toast / System Notification
   notification: { message: string; type: 'success' | 'info' | 'warning' } | null;
+
+  // Authentication Actions
+  openAuthModal: (redirect?: 'checkout') => void;
+  closeAuthModal: () => void;
+  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (data: { name: string; emailOrPhone: string; password: string; studentId?: string; universityName?: string }) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
 
   // Actions
   setCategory: (cat: ProductCategory) => void;
@@ -174,10 +186,31 @@ const savePriceAlertsToStorage = (alerts: PriceAlert[]) => {
   }
 };
 
+const loadInitialAuth = (): { user: User; isAuthenticated: boolean } => {
+  if (typeof window === 'undefined') {
+    return { user: SAMPLE_USERS[0], isAuthenticated: false };
+  }
+  try {
+    const isAuth = localStorage.getItem('unikart_is_authenticated') === 'true';
+    const savedUser = localStorage.getItem('unikart_auth_user');
+    if (isAuth && savedUser) {
+      return { user: JSON.parse(savedUser), isAuthenticated: true };
+    }
+  } catch {
+    // ignore
+  }
+  return { user: SAMPLE_USERS[0], isAuthenticated: false };
+};
+
+const initialAuth = loadInitialAuth();
+
 export const useStore = create<StoreState>((set, get) => ({
   products: INITIAL_PRODUCTS,
   orders: INITIAL_ORDERS as unknown as Order[],
-  currentUser: SAMPLE_USERS[0], // Alex Rivera (student)
+  currentUser: initialAuth.user,
+  isAuthenticated: initialAuth.isAuthenticated,
+  isAuthModalOpen: false,
+  authRedirectAction: null,
   cart: [],
   currency: CURRENCIES.INR, // Default to Indian Rupee (₹)
   selectedCategory: 'all',
@@ -452,7 +485,104 @@ export const useStore = create<StoreState>((set, get) => ({
 
   clearCart: () => set({ cart: [] }),
 
+  // Authentication Actions
+  openAuthModal: (redirect?: 'checkout') => {
+    set({ isAuthModalOpen: true, authRedirectAction: redirect || null });
+  },
+  closeAuthModal: () => {
+    set({ isAuthModalOpen: false, authRedirectAction: null });
+  },
+  login: async (identifier: string, password: string) => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailOrPhone: identifier, password })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('unikart_is_authenticated', 'true');
+          localStorage.setItem('unikart_auth_user', JSON.stringify(data.user));
+        }
+        const redirectAction = get().authRedirectAction;
+        set({
+          currentUser: data.user,
+          isAuthenticated: true,
+          isAuthModalOpen: false,
+          authRedirectAction: null,
+          isCheckoutOpen: redirectAction === 'checkout'
+        });
+        get().setNotification({
+          message: `Logged in as ${data.user.name}. You can now place your order!`,
+          type: 'success'
+        });
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Invalid email/phone or password' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Login network error' };
+    }
+  },
+  signup: async (formData) => {
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('unikart_is_authenticated', 'true');
+          localStorage.setItem('unikart_auth_user', JSON.stringify(data.user));
+        }
+        const redirectAction = get().authRedirectAction;
+        set({
+          currentUser: data.user,
+          isAuthenticated: true,
+          isAuthModalOpen: false,
+          authRedirectAction: null,
+          isCheckoutOpen: redirectAction === 'checkout'
+        });
+        get().setNotification({
+          message: `Account created for ${data.user.name}! You can now place your order.`,
+          type: 'success'
+        });
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Failed to sign up' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Sign up network error' };
+    }
+  },
+  logout: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('unikart_is_authenticated');
+      localStorage.removeItem('unikart_auth_user');
+    }
+    set({
+      isAuthenticated: false,
+      currentUser: SAMPLE_USERS[0],
+      isCheckoutOpen: false,
+      notification: {
+        message: 'Signed out successfully. Sign up or log in to place orders.',
+        type: 'info'
+      }
+    });
+  },
+
   createOrder: (orderData) => {
+    // ENFORCE AUTHENTICATION: Student must sign up with email/phone and password first
+    if (!get().isAuthenticated) {
+      get().openAuthModal('checkout');
+      get().setNotification({
+        message: 'Sign up or log in with your email or phone and password to place this order!',
+        type: 'warning'
+      });
+      return null as any;
+    }
+
     const newId = `ord_student_${Date.now()}`;
     const orderNum = `UK-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
     const fullOrder: Order = {

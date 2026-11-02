@@ -26,7 +26,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     toggleWishlist,
     isInWishlist,
     hasPriceAlert,
-    openPriceAlertModal
+    openPriceAlertModal,
+    isAuthenticated,
+    openAuthModal
   } = useStore();
 
   const isSaved = isInWishlist(product.id);
@@ -51,7 +53,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleDirectBuy = (e: React.MouseEvent) => {
     e.stopPropagation();
     addToCart(product);
-    setIsCartOpen(true);
+    if (!isAuthenticated) {
+      openAuthModal('checkout');
+    } else {
+      setIsCartOpen(true);
+    }
   };
 
   const handleOpenAuth = (e: React.MouseEvent) => {

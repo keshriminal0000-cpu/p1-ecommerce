@@ -105,6 +105,134 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+// In-Memory User & Credentials Registry
+interface RegisteredUser {
+  id: string;
+  name: string;
+  emailOrPhone: string;
+  email: string;
+  phone?: string;
+  passwordHash: string;
+  role: 'student' | 'vendor' | 'delivery' | 'admin';
+  studentId: string;
+  universityName: string;
+  verifiedStudent: boolean;
+  avatar: string;
+  walletBalance: number;
+}
+
+const registeredUsers: RegisteredUser[] = [
+  {
+    id: 'usr_student_01',
+    name: 'Alex Rivera',
+    emailOrPhone: 'alex.rivera@stanford.edu',
+    email: 'alex.rivera@stanford.edu',
+    phone: '+1 650 555 0199',
+    passwordHash: crypto.createHash('sha256').update('password123').digest('hex'),
+    role: 'student',
+    studentId: 'STU-2026-8894',
+    universityName: 'Stanford University (CS & Robotics)',
+    verifiedStudent: true,
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+    walletBalance: 12450.00
+  }
+];
+
+// 1b. Student Sign Up API (Email or Phone + Password)
+app.post('/api/auth/signup', rateLimiter(15), (req, res) => {
+  const { name, emailOrPhone, password, studentId, universityName } = req.body;
+
+  if (!name || typeof name !== 'string' || name.trim().length < 2) {
+    return res.status(400).json({ success: false, error: 'Full student name is required.' });
+  }
+
+  if (!emailOrPhone || typeof emailOrPhone !== 'string' || emailOrPhone.trim().length < 4) {
+    return res.status(400).json({ success: false, error: 'Valid email address or phone number is required.' });
+  }
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long.' });
+  }
+
+  const cleanIdentifier = emailOrPhone.trim().toLowerCase();
+
+  // Check if identifier already registered
+  const existing = registeredUsers.find(u => u.emailOrPhone.toLowerCase() === cleanIdentifier);
+  if (existing) {
+    return res.status(409).json({ 
+      success: false, 
+      error: 'An account with this email or phone number already exists. Please log in.' 
+    });
+  }
+
+  const isEmail = cleanIdentifier.includes('@');
+  const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+  const newUserId = `usr_student_${Date.now()}`;
+  const generatedStudentId = studentId || `STU-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const newUser: RegisteredUser = {
+    id: newUserId,
+    name: name.trim(),
+    emailOrPhone: cleanIdentifier,
+    email: isEmail ? cleanIdentifier : `${cleanIdentifier.replace(/[^0-9]/g, '')}@student.unikart.edu`,
+    phone: isEmail ? undefined : cleanIdentifier,
+    passwordHash,
+    role: 'student',
+    studentId: generatedStudentId,
+    universityName: universityName || 'Verified University Campus',
+    verifiedStudent: true,
+    avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80`,
+    walletBalance: 2500.00 // Welcome student bonus credit in INR
+  };
+
+  registeredUsers.push(newUser);
+
+  const token = `JWT_${crypto.randomBytes(16).toString('hex')}`;
+
+  const { passwordHash: _, ...safeUser } = newUser;
+
+  res.json({
+    success: true,
+    message: 'Student account created successfully! Welcome student bonus ₹2,500 credited to wallet.',
+    token,
+    user: safeUser
+  });
+});
+
+// 1c. Student Login API (Email or Phone + Password)
+app.post('/api/auth/login', rateLimiter(20), (req, res) => {
+  const { emailOrPhone, password } = req.body;
+
+  if (!emailOrPhone || !password) {
+    return res.status(400).json({ success: false, error: 'Email/Phone and password are required.' });
+  }
+
+  const cleanIdentifier = emailOrPhone.trim().toLowerCase();
+  const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+
+  const user = registeredUsers.find(u => 
+    u.emailOrPhone.toLowerCase() === cleanIdentifier || 
+    (u.phone && u.phone.replace(/[^0-9]/g, '') === cleanIdentifier.replace(/[^0-9]/g, ''))
+  );
+
+  if (!user || user.passwordHash !== passwordHash) {
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Invalid credentials. Please verify your email/phone and password.' 
+    });
+  }
+
+  const token = `JWT_${crypto.randomBytes(16).toString('hex')}`;
+  const { passwordHash: _, ...safeUser } = user;
+
+  res.json({
+    success: true,
+    message: `Welcome back, ${user.name}!`,
+    token,
+    user: safeUser
+  });
+});
+
 // 2. Cross-Platform Link Extractor API
 // Handles links from Amazon, Flipkart, BestBuy, Arduino Store, Adafruit, etc.
 app.post('/api/products/extract', rateLimiter(20), (req, res) => {
@@ -385,6 +513,14 @@ app.post('/api/checkout', rateLimiter(15), (req, res) => {
 
   if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
     return res.status(400).json({ error: 'Cart cannot be empty.' });
+  }
+
+  // Enforce student login / signup requirement prior to order placement
+  if (!studentId && !req.headers.authorization) {
+    return res.status(401).json({
+      error: 'Authentication Required',
+      message: 'You must sign up with an email account or phone and create a password before placing an order.'
+    });
   }
 
   const lockKey = `lock:checkout:${studentId || 'anon'}`;

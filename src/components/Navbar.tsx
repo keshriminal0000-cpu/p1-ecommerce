@@ -19,6 +19,8 @@ import {
 import { useStore, CURRENCIES } from '../store/useStore';
 import { UserRole } from '../types';
 import { MultiPlatformSearchModal } from './MultiPlatformSearchModal';
+import { SearchBarWithRelated } from './SearchBarWithRelated';
+import { LogIn, LogOut, KeyRound } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const {
@@ -42,12 +44,16 @@ export const Navbar: React.FC = () => {
     isDarkPatternShieldActive,
     toggleDarkPatternShield,
     orders,
-    openOrderTracking
+    openOrderTracking,
+    isAuthenticated,
+    openAuthModal,
+    logout
   } = useStore();
 
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [isMultiSearchOpen, setIsMultiSearchOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const cartTotalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotalUSD = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -143,63 +149,43 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        {/* Global Multi-Platform Search Bar */}
-        <div className="relative flex-1 max-w-md hidden md:block">
-          <div className="relative flex items-center">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search Amazon, Flipkart, BestBuy (e.g. ESP32, Casio)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setIsMultiSearchOpen(true);
-                }
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-10 pr-24 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="text-[10px] text-slate-400 hover:text-slate-600 px-1"
-                >
-                  Clear
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setIsMultiSearchOpen(true)}
-                className="rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 transition ring-1 ring-indigo-200"
-                title="Search availability across Amazon, Flipkart, Best Buy, etc."
-              >
-                Where Available?
-              </button>
-            </div>
-          </div>
+        {/* Global Multi-Platform Search Bar with Live Related Products Dropdown */}
+        <div className="flex-1 max-w-md hidden md:block">
+          <SearchBarWithRelated
+            onOpenMultiPlatformSearch={() => setIsMultiSearchOpen(true)}
+          />
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {/* Mobile Search Button */}
+          <button
+            onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+            className="md:hidden rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:text-indigo-600 transition"
+            aria-label="Search"
+            title="Search related products"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+
           {/* Cross-Platform Product Link Extractor Trigger Button */}
           <button
             onClick={() => setIsLinkExtractorOpen(true)}
-            className="group relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:from-indigo-500 hover:to-violet-500 transition-all hover:shadow-indigo-500/25 active:scale-95"
+            className="group relative inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:from-indigo-500 hover:to-violet-500 transition-all hover:shadow-indigo-500/25 active:scale-95"
             title="Import and order directly from Amazon, Flipkart, BestBuy, Arduino Store..."
           >
             <Sparkles className="h-3.5 w-3.5 text-yellow-300 animate-pulse" />
-            <span className="font-medium hidden sm:inline">Extract From Any Link</span>
+            <span className="font-medium hidden sm:inline">Extract Link</span>
             <span className="sm:hidden">Extract</span>
-            <span className="rounded bg-white/20 px-1 py-0.2 text-[9px] font-black uppercase tracking-wider text-white">
-              Direct Order
+            <span className="rounded bg-white/20 px-1 py-0.2 text-[9px] font-black uppercase tracking-wider text-white hidden sm:inline">
+              Direct
             </span>
           </button>
 
           {/* Dark Pattern Shield Toggle */}
           <button
             onClick={toggleDarkPatternShield}
-            className={`hidden lg:inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border transition ${
+            className={`hidden xl:inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border transition ${
               isDarkPatternShieldActive 
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' 
                 : 'border-slate-200 bg-slate-50 text-slate-600'
@@ -214,7 +200,7 @@ export const Navbar: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
             >
               <span>{currency.symbol}</span>
               <span>{currency.code}</span>
@@ -244,65 +230,111 @@ export const Navbar: React.FC = () => {
             )}
           </div>
 
-          {/* Role Persona Switcher (RBAC) */}
-          <div className="relative">
+          {/* Authentication & Role Persona */}
+          {!isAuthenticated ? (
             <button
-              onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 sm:px-2.5 sm:py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
-              title="Switch user role to test Student, Campus Vendor, Delivery Partner, or Super Admin"
+              onClick={() => openAuthModal()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition active:scale-95"
+              title="Sign up with email or phone to place orders"
             >
-              <img 
-                src={currentUser.avatar} 
-                alt={currentUser.name} 
-                className="h-6 w-6 rounded-full object-cover ring-1 ring-slate-200"
-              />
-              <div className="text-left hidden xl:block">
-                <div className="text-[11px] font-semibold text-slate-900 leading-tight">
-                  {currentUser.name}
-                </div>
-                <div className="text-[10px] text-indigo-600 font-medium leading-tight">
-                  {currentUser.role.toUpperCase()}
-                </div>
-              </div>
-              <ChevronDown className="h-3 w-3 text-slate-400" />
+              <LogIn className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign In / Register</span>
+              <span className="sm:hidden">Sign In</span>
             </button>
-
-            {roleDropdownOpen && (
-              <div className="absolute right-0 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl z-50">
-                <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    Simulate RBAC Persona
-                  </p>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-1 sm:px-2.5 sm:py-1.5 text-xs font-medium text-slate-700 hover:bg-emerald-50 transition"
+                title="Student logged in. Click to manage profile or switch RBAC persona"
+              >
+                <img 
+                  src={currentUser.avatar} 
+                  alt={currentUser.name} 
+                  className="h-6 w-6 rounded-full object-cover ring-1 ring-emerald-400"
+                />
+                <div className="text-left hidden xl:block">
+                  <div className="text-[11px] font-semibold text-slate-900 leading-tight">
+                    {currentUser.name}
+                  </div>
+                  <div className="text-[10px] text-emerald-700 font-bold leading-tight flex items-center gap-1">
+                    <span>Verified</span>
+                    <span>•</span>
+                    <span>{currentUser.role.toUpperCase()}</span>
+                  </div>
                 </div>
-                {roles.map((r) => (
+                <ChevronDown className="h-3 w-3 text-slate-400" />
+              </button>
+
+              {roleDropdownOpen && (
+                <div className="absolute right-0 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50 animate-in fade-in zoom-in-95">
+                  <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
+                    <p className="text-xs font-bold text-slate-900">{currentUser.name}</p>
+                    <p className="text-[10px] text-slate-500">{currentUser.email || currentUser.phone}</p>
+                    <span className="inline-block mt-1 text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                      Verified Student Access Active
+                    </span>
+                  </div>
+
                   <button
-                    key={r.id}
                     onClick={() => {
-                      switchUserRole(r.id);
+                      setActiveDashboardTab('profile');
+                      setIsUserDashboardOpen(true);
                       setRoleDropdownOpen(false);
                     }}
-                    className={`flex w-full flex-col text-left rounded-lg p-2 transition ${
-                      currentUser.role === r.id
-                        ? 'bg-indigo-50/80 border border-indigo-200/60'
-                        : 'hover:bg-slate-50'
-                    }`}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 font-medium"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-900">{r.label}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                        r.id === 'student' ? 'bg-emerald-100 text-emerald-800' :
-                        r.id === 'vendor' ? 'bg-amber-100 text-amber-800' :
-                        r.id === 'delivery' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-                      }`}>
-                        {r.badge}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-0.5">{r.desc}</span>
+                    <UserCheck className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>My Student Dashboard</span>
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+
+                  <div className="pt-1.5 mt-1 border-t border-slate-100">
+                    <p className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                      Simulate RBAC Persona
+                    </p>
+                    {roles.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => {
+                          switchUserRole(r.id);
+                          setRoleDropdownOpen(false);
+                        }}
+                        className={`flex w-full flex-col text-left rounded-lg p-1.5 transition ${
+                          currentUser.role === r.id
+                            ? 'bg-indigo-50 border border-indigo-200/60'
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-900">{r.label}</span>
+                          <span className={`text-[9px] font-bold px-1 py-0.2 rounded ${
+                            r.id === 'student' ? 'bg-emerald-100 text-emerald-800' :
+                            r.id === 'vendor' ? 'bg-amber-100 text-amber-800' :
+                            r.id === 'delivery' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {r.badge}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-1.5 mt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        logout();
+                        setRoleDropdownOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-rose-600 hover:bg-rose-50 font-semibold transition"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Student Price Alerts Button */}
           <button
@@ -360,6 +392,18 @@ export const Navbar: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Mobile Search Bar Dropdown */}
+      {isMobileSearchOpen && (
+        <div className="md:hidden border-t border-slate-200/80 bg-white p-3 shadow-inner animate-in slide-in-from-top-2">
+          <SearchBarWithRelated
+            onOpenMultiPlatformSearch={() => {
+              setIsMobileSearchOpen(false);
+              setIsMultiSearchOpen(true);
+            }}
+          />
+        </div>
+      )}
 
       {/* Multi-Platform Search & Availability Modal */}
       <MultiPlatformSearchModal

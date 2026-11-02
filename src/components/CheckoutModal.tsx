@@ -23,7 +23,9 @@ export const CheckoutModal: React.FC = () => {
     setIsCheckoutOpen, 
     currentUser, 
     createOrder, 
-    currency 
+    currency,
+    isAuthenticated,
+    openAuthModal
   } = useStore();
 
   const [paymentMethod, setPaymentMethod] = useState<'STRIPE' | 'RAZORPAY_UPI' | 'PAYPAL' | 'CAMPUS_CARD'>('CAMPUS_CARD');
@@ -127,6 +129,28 @@ export const CheckoutModal: React.FC = () => {
         </div>
 
         <div className="p-6 space-y-6">
+          {!isAuthenticated && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                <div>
+                  <span className="font-bold">Student Account Required to Place Order:</span>
+                  <p className="text-[11px] text-amber-700">Please sign up with your email or phone and password before completing payment.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCheckoutOpen(false);
+                  openAuthModal('checkout');
+                }}
+                className="rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition shrink-0"
+              >
+                Sign Up / Log In Now
+              </button>
+            </div>
+          )}
+
           {/* Distributed Lock & Idempotency Badge */}
           <div className="flex items-center justify-between rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-xs">
             <div className="flex items-center gap-2 text-indigo-900">
@@ -328,23 +352,37 @@ export const CheckoutModal: React.FC = () => {
           </div>
 
           {/* Submit Button */}
-          <button
-            onClick={handleExecuteCheckout}
-            disabled={isProcessing}
-            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-indigo-700 transition active:scale-98 disabled:opacity-50"
-          >
-            {isProcessing ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span>Acquiring Distributed Lock & Verifying Ledger...</span>
-              </>
-            ) : (
-              <>
-                <span>Confirm & Pay {currency.symbol}{convertPrice(totalUSD)}</span>
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
+          {!isAuthenticated ? (
+            <button
+              onClick={() => {
+                setIsCheckoutOpen(false);
+                openAuthModal('checkout');
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-amber-600 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-amber-700 transition active:scale-98"
+            >
+              <AlertCircle className="h-4 w-4" />
+              <span>Sign Up / Log In with Email or Phone to Order</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              onClick={handleExecuteCheckout}
+              disabled={isProcessing}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-indigo-700 transition active:scale-98 disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Acquiring Distributed Lock & Verifying Ledger...</span>
+                </>
+              ) : (
+                <>
+                  <span>Confirm & Pay {currency.symbol}{convertPrice(totalUSD)}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
