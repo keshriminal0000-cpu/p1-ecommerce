@@ -1,0 +1,6 @@
+{
+  "name": "UniKart | Student Commerce & Multi-Platform Aggregator",
+  "description": "Next-gen student-centric e-commerce engine with zero dark patterns, cross-platform product import (Amazon, Flipkart & verified vendors), direct checkout, transparent pricing, and automated order lifecycle.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
